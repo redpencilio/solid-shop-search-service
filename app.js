@@ -1,26 +1,27 @@
-import { app, query, errorHandler } from 'mu';
+import {app, errorHandler} from 'mu';
+import {QueryEngine} from '@comunica/query-sparql';
+import {queryPod, deleteOld, insert} from './sync';
 
-app.get('/', function( req, res ) {
-  res.send('Hello mu-javascript-template');
-} );
+const queryEngine = new QueryEngine();
 
+app.post('/sync', async (req, res) => {
+    const pod = req.body.pod;
+    if (pod === undefined) {
+        res.status(400).send('Missing pod');
+        return;
+    }
 
-app.get('/query', function( req, res ) {
-  var myQuery = `
-    SELECT *
-    WHERE {
-      GRAPH <http://mu.semte.ch/application> {
-        ?s ?p ?o.
-      }
-    }`;
+    const quads = await queryPod(queryEngine, pod);
 
-  query( myQuery )
-    .then( function(response) {
-      res.send( JSON.stringify( response ) );
-    })
-    .catch( function(err) {
-      res.send( "Oops something went wrong: " + JSON.stringify( err ) );
-    });
-} );
+    await deleteOld(pod);
+
+    insert(quads, pod)
+        .then(function (response) {
+            res.send(JSON.stringify(response));
+        })
+        .catch(function (err) {
+            res.send("Oops something went wrong: " + JSON.stringify(err));
+        });
+});
 
 app.use(errorHandler);
