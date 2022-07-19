@@ -5,13 +5,13 @@ export async function queryDatabase(name, description, seller) {
     if (name || description || seller) {
         const filterBody = [];
         if (name) {
-            filterBody.push(`?name = "${name}"`);
+            filterBody.push(`?name = "${decodeURIComponent(name)}"`);
         }
         if (description) {
-            filterBody.push(`?description = "${description}"`);
+            filterBody.push(`?description = "${decodeURIComponent(description)}"`);
         }
         if (seller) {
-            filterBody.push(`?seller = "${seller}"`);
+            filterBody.push(`?seller = "${decodeURIComponent(seller)}"`);
         }
         filter = `FILTER (${filterBody.join(' && ')})`;
     }
