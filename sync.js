@@ -15,6 +15,9 @@ export async function queryPod(queryEngine, pod) {
     ?product a gr:ProductOrService;
         gr:name ?productName;
         gr:description ?productDescription.
+    ?seller a gr:BusinessEntity;
+        gr:legalName ?sellerLegalName;
+        gr:offers ?offering.
   }
   WHERE {
     ?priceSpecification a gr:PriceSpecification;
@@ -28,6 +31,9 @@ export async function queryPod(queryEngine, pod) {
     ?product a gr:ProductOrService;
         gr:name ?productName;
         gr:description ?productDescription.
+    ?seller a gr:BusinessEntity;
+        gr:legalName ?sellerLegalName;
+        gr:offers ?offering.
   }
   `, {
         sources: [`${pod}/private/tests/my-offerings.ttl`, `${pod}/private/tests/my-products.ttl`],
