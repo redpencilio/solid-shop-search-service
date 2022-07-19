@@ -1,6 +1,7 @@
 import {app, errorHandler} from 'mu';
 import {QueryEngine} from '@comunica/query-sparql';
 import {queryPod, deleteOld, insert} from './sync';
+import {queryDatabase} from './query';
 
 const queryEngine = new QueryEngine();
 
@@ -22,6 +23,12 @@ app.post('/sync', async (req, res) => {
         .catch(function (err) {
             res.send("Oops something went wrong: " + JSON.stringify(err));
         });
+});
+
+app.get('/query', async (req, res) => {
+    const offerings = await queryDatabase();
+
+    res.send(JSON.stringify(offerings));
 });
 
 app.use(errorHandler);
