@@ -1,6 +1,20 @@
 import { query } from 'mu';
 
-export async function queryDatabase() {
+export async function queryDatabase(name, description, seller) {
+    let filter = '';
+    if (name || description || seller) {
+        const filterBody = [];
+        if (name) {
+            filterBody.push(`?name = "${name}"`);
+        }
+        if (description) {
+            filterBody.push(`?description = "${description}"`);
+        }
+        if (seller) {
+            filterBody.push(`?seller = "${seller}"`);
+        }
+        filter = `FILTER (${filterBody.join(' && ')})`;
+    }
     const offeringsQuery = `
     PREFIX gr: <http://purl.org/goodrelations/v1#>
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
@@ -22,6 +36,7 @@ export async function queryDatabase() {
         ?sellerEntity a gr:BusinessEntity;
             gr:legalName ?seller;
             gr:offers ?offering.
+        ${filter}
     }`;
 
     return query(offeringsQuery);

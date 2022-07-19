@@ -26,7 +26,7 @@ app.post('/sync', async (req, res) => {
 });
 
 app.get('/query', async (req, res) => {
-    const offerings = await queryDatabase();
+    const offerings = await queryDatabase(req.query.name, req.query.description, req.query.seller);
 
     res.send(JSON.stringify(offerings));
 });
