@@ -67,8 +67,9 @@ app.post('/buy', async (req, res) => {
         return;
     }
 
-    if (await saveOrder(queryEngine, offering, buyerPod, sellerPod, buyerWebId, offering.sellerWebId.value, brokerWebId)) {
-        res.send('Order succeeded');
+    const orderDetails = await saveOrder(queryEngine, offering, buyerPod, sellerPod, buyerWebId, offering.sellerWebId.value, brokerWebId)
+    if (orderDetails) {
+        res.send(JSON.stringify(orderDetails));
     } else {
         res.status(500).send('Order failed');
     }

@@ -1,5 +1,6 @@
 import {query, update} from 'mu';
 import {objectToString} from "./helper";
+import { v4 as uuid } from 'uuid'
 
 export async function findOfferingDetails(buyerPod, sellerPod, offeringId) {
     const offeringsQuery = `
@@ -36,6 +37,10 @@ export function handlePayment(offeringName, price) {
 }
 
 export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWebId, sellerWebId, brokerWebId) {
+    const offerUUID = `${sellerPod}/private/tests/my-offerings.ttl#${uuid()}`;
+    const orderUUID = `${sellerPod}/private/tests/my-offerings.ttl#${uuid()}`;
+    const orderDate = new Date().toISOString();
+
     // Extra graphStmt boolean because CSS does not support GRAPH statements and update in 'mu' errors 400 without.
     const insertOrderQuery = (graphStmt) => `
     PREFIX schema: <http://schema.org/>
@@ -53,11 +58,11 @@ export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWe
             schema:seller "${sellerWebId}";
             schema:customer "${buyerWebId}";
             schema:broker "${brokerWebId}";
-            schema:orderDate "${new Date().toISOString()}".
+            schema:orderDate "${orderDate}".
     } ${ graphStmt ? '}' : '' }
     WHERE {
-        BIND(IRI(CONCAT("${sellerPod}/private/tests/my-offerings.ttl#", STRUUID())) AS ?offer)
-        BIND(IRI(CONCAT("${sellerPod}/private/tests/my-offerings.ttl#", STRUUID())) AS ?order)
+        BIND(IRI("${offerUUID}") AS ?offer)
+        BIND(IRI("${orderUUID}") AS ?order)
     }`;
 
     try {
@@ -66,8 +71,8 @@ export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWe
         await queryEngine.queryVoid(insertOrderQuery(false), {destination: `${sellerPod}/private/tests/my-offerings.ttl`});
     } catch (e) {
         console.error(e);
-        return false;
+        return null;
     }
 
-    return true;
+    return {offerUUID, orderUUID};
 }
