@@ -3,6 +3,7 @@ import {QueryEngine} from '@comunica/query-sparql';
 import {queryPod, deleteOld, insert} from './sync';
 import {queryDatabase} from './query';
 import {confirmPayment, findOfferingDetails, handlePayment, saveOrder} from "./buy";
+import {getSales} from "./sales";
 
 const queryEngine = new QueryEngine();
 const brokerWebId = 'https://broker.mu/'; // TODO: change to real broker web id
@@ -97,6 +98,18 @@ app.post('/buy/callback', async (req, res) => {
     } else {
         res.status(500).send('Payment confirmation failed');
     }
+});
+
+app.get('/sales', async (req, res) => {
+    const sellerWebId = decodeURIComponent(req.query.sellerWebId);
+    if (sellerWebId === undefined) {
+        res.status(400).send('Missing sellerWebId');
+        return;
+    }
+
+    const sales = await getSales(sellerWebId);
+
+    res.send(JSON.stringify(sales));
 });
 
 app.use(errorHandler);
