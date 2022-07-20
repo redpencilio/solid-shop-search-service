@@ -18,7 +18,7 @@ export async function queryDatabase(name, description, seller) {
     const offeringsQuery = `
     PREFIX gr: <http://purl.org/goodrelations/v1#>
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
-    SELECT ?offering ?product ?currency ?currencyValue ?name ?description ?productName ?productDescription ?pod ?seller
+    SELECT ?offering ?product ?currency ?currencyValue ?name ?description ?productName ?productDescription ?pod ?seller ?sellerWebId
     FROM <http://mu.semte.ch/application>
     WHERE {
         ?product a gr:ProductOrService.
@@ -35,6 +35,7 @@ export async function queryDatabase(name, description, seller) {
             gr:description ?productDescription.
         ?sellerEntity a gr:BusinessEntity;
             gr:legalName ?seller;
+            gr:description ?sellerWebId;
             gr:offers ?offering.
         ${filter}
     }`;
