@@ -4,6 +4,7 @@ import {queryPod, deleteOld, insert} from './sync';
 import {queryDatabase} from './query';
 import {confirmPayment, findOfferingDetails, handlePayment, saveOrder} from "./buy";
 import {getSales} from "./sales";
+import {getPurchases} from "./purchases";
 
 const queryEngine = new QueryEngine();
 const brokerWebId = 'https://broker.mu/'; // TODO: change to real broker web id
@@ -110,6 +111,18 @@ app.get('/sales', async (req, res) => {
     const sales = await getSales(sellerWebId);
 
     res.send(JSON.stringify(sales));
+});
+
+app.get('/purchases', async (req, res) => {
+    const buyerWebId = decodeURIComponent(req.query.buyerWebId);
+    if (buyerWebId === undefined) {
+        res.status(400).send('Missing buyerWebId');
+        return;
+    }
+
+    const purchases = await getPurchases(buyerWebId);
+
+    res.send(JSON.stringify(purchases));
 });
 
 app.use(errorHandler);
