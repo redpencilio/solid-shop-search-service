@@ -1,6 +1,6 @@
 import {query, update} from 'mu';
 import {objectToString} from "./helper";
-import { v4 as uuid } from 'uuid'
+import {v4 as uuid} from 'uuid'
 
 export async function findOfferingDetails(buyerPod, sellerPod, offeringId) {
     const offeringsQuery = `
@@ -45,7 +45,7 @@ export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWe
     const insertOrderQuery = (graphStmt) => `
     PREFIX schema: <http://schema.org/>
     PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-    INSERT { ${ graphStmt ? 'GRAPH <http://mu.semte.ch/application> {' : '' }
+    INSERT { ${graphStmt ? 'GRAPH <http://mu.semte.ch/application> {' : ''}
         ?offer a schema:Offer;
             schema:name "${offer.name.value}";
             schema:description "${offer.description.value}";
@@ -54,12 +54,12 @@ export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWe
             schema:seller "${sellerWebId}".
         ?order a schema:Order;
             schema:acceptedOffer ?offer;
-            schema:orderStatus "http://schema.org/OrderDelivered";
+            schema:orderStatus "http://schema.org/OrderPaymentDue";
             schema:seller "${sellerWebId}";
             schema:customer "${buyerWebId}";
             schema:broker "${brokerWebId}";
             schema:orderDate "${orderDate}".
-    } ${ graphStmt ? '}' : '' }
+    } ${graphStmt ? '}' : ''}
     WHERE {
         BIND(IRI("${offerUUID}") AS ?offer)
         BIND(IRI("${orderUUID}") AS ?order)
@@ -75,4 +75,30 @@ export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWe
     }
 
     return {offerUUID, orderUUID};
+}
+
+export async function confirmPayment(queryEngine, buyerPod, sellerPod, orderUUID) {
+    const updateOrderQuery = (graphStmt) => `
+    PREFIX schema: <http://schema.org/>
+    PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+    DELETE { ${graphStmt ? 'GRAPH <http://mu.semte.ch/application> {' : ''}
+        ?order schema:orderStatus "http://schema.org/OrderPaymentDue".
+    } ${graphStmt ? '}' : ''}
+    INSERT { ${graphStmt ? 'GRAPH <http://mu.semte.ch/application> {' : ''}
+        ?order schema:orderStatus "http://schema.org/OrderDelivered".
+    } ${graphStmt ? '}' : ''}
+    WHERE {
+        BIND(IRI("${orderUUID}") AS ?order)
+    }`;
+
+    try {
+        await update(updateOrderQuery(true));
+        await queryEngine.queryVoid(updateOrderQuery(false), {destination: `${buyerPod}/private/tests/my-offerings.ttl`});
+        await queryEngine.queryVoid(updateOrderQuery(false), {destination: `${sellerPod}/private/tests/my-offerings.ttl`});
+    } catch (e) {
+        console.error(e);
+        return false;
+    }
+
+    return true;
 }

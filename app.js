@@ -2,7 +2,7 @@ import {app, errorHandler} from 'mu';
 import {QueryEngine} from '@comunica/query-sparql';
 import {queryPod, deleteOld, insert} from './sync';
 import {queryDatabase} from './query';
-import {findOfferingDetails, handlePayment, saveOrder} from "./buy";
+import {confirmPayment, findOfferingDetails, handlePayment, saveOrder} from "./buy";
 
 const queryEngine = new QueryEngine();
 const brokerWebId = 'https://broker.mu/'; // TODO: change to real broker web id
@@ -72,6 +72,30 @@ app.post('/buy', async (req, res) => {
         res.send(JSON.stringify(orderDetails));
     } else {
         res.status(500).send('Order failed');
+    }
+});
+
+app.post('/buy/callback', async (req, res) => {
+    const buyerPod = req.body.buyerPod;
+    if (buyerPod === undefined) {
+        res.status(400).send('Missing buyerPod');
+        return;
+    }
+    const sellerPod = req.body.sellerPod;
+    if (sellerPod === undefined) {
+        res.status(400).send('Missing sellerPod');
+        return;
+    }
+    const orderId = req.body.orderId;
+    if (orderId === undefined) {
+        res.status(400).send('Missing orderId');
+        return;
+    }
+
+    if (await confirmPayment(queryEngine, buyerPod, sellerPod, orderId)) {
+        res.send('OK');
+    } else {
+        res.status(500).send('Payment confirmation failed');
     }
 });
 
