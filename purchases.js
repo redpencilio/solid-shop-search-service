@@ -12,7 +12,7 @@ export async function getPurchases(buyerWebId) {
             schema:orderStatus ?orderStatus;
             schema:orderDate ?orderDate;
             schema:acceptedOffer ?offer;
-            schema:customer "${buyerWebId}".
+            schema:customer <${buyerWebId}>.
             
         ?offer a schema:Offer;
             schema:name ?offerName;

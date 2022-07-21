@@ -2,7 +2,15 @@ import {app, errorHandler} from 'mu';
 import {QueryEngine} from '@comunica/query-sparql';
 import {queryPod, deleteOld, insert} from './sync';
 import {queryDatabase} from './query';
-import {confirmPayment, findOfferingDetails, handlePayment, saveOrder} from "./buy";
+import {
+    checkPayment,
+    confirmPayment,
+    findOfferingDetails,
+    getMollieApiKey, getPaymentInformationFromPaymentId,
+    handlePayment,
+    saveOrder,
+    storeMollieApiKey
+} from "./buy";
 import {getSales} from "./sales";
 import {getPurchases} from "./purchases";
 
@@ -64,40 +72,65 @@ app.post('/buy', async (req, res) => {
     }
     const offering = offerings.results.bindings[0];
 
-    if (!handlePayment(offering.name.value, offering.currencyValue.value)) {
-        res.status(400).send('Payment failed');
+    const apiKeyResult = await getMollieApiKey(offering.sellerWebId.value);
+    if (!Array.isArray(apiKeyResult.results.bindings) || !apiKeyResult.results.bindings.length) {
+        res.status(400).send('Seller did not provide payment configuration');
+    }
+    const apiKey = apiKeyResult.results.bindings[0].mollieApiKey.value;
+
+    const payment = await handlePayment(offering.name.value, offering.currencyValue.value, apiKey);
+
+    await saveOrder(queryEngine, offering, buyerPod, sellerPod, buyerWebId, offering.sellerWebId.value, brokerWebId, payment.id);
+
+    res.redirect(payment.getCheckoutUrl());
+});
+
+app.post('/buy/key', async (req, res) => {
+    const sellerWebId = decodeURIComponent(req.body.sellerWebId);
+    if (sellerWebId === undefined) {
+        res.status(400).send('Missing sellerWebId');
+        return;
+    }
+    const apiKey = req.body.apiKey;
+    if (apiKey === undefined) {
+        res.status(400).send('Missing apiKey');
         return;
     }
 
-    const orderDetails = await saveOrder(queryEngine, offering, buyerPod, sellerPod, buyerWebId, offering.sellerWebId.value, brokerWebId)
-    if (orderDetails) {
-        res.send(JSON.stringify(orderDetails));
+    if (await storeMollieApiKey(sellerWebId, apiKey)) {
+        res.send('API key stored');
     } else {
-        res.status(500).send('Order failed');
+        res.status(500).send('API key not stored');
     }
 });
 
 app.post('/buy/callback', async (req, res) => {
-    const buyerPod = req.body.buyerPod;
-    if (buyerPod === undefined) {
-        res.status(400).send('Missing buyerPod');
-        return;
-    }
-    const sellerPod = req.body.sellerPod;
-    if (sellerPod === undefined) {
-        res.status(400).send('Missing sellerPod');
-        return;
-    }
-    const orderId = req.body.orderId;
-    if (orderId === undefined) {
-        res.status(400).send('Missing orderId');
+    const paymentId = req.body.id;
+    if (paymentId === undefined) {
+        res.status(400).send('Missing payment id');
         return;
     }
 
-    if (await confirmPayment(queryEngine, buyerPod, sellerPod, orderId)) {
-        res.send('OK');
+    const apiKeyQuery = await getPaymentInformationFromPaymentId(paymentId);
+    if (!Array.isArray(apiKeyQuery.results.bindings) || apiKeyQuery.results.bindings.length === 0) {
+        throw new Error('No API key found for payment. How was the payment initiated?');
+    }
+    const mollieApiKey = apiKeyQuery.results.bindings[0].mollieApiKey.value;
+    const buyerPod = apiKeyQuery.results.bindings[0].buyerPod.value;
+    const sellerPod = apiKeyQuery.results.bindings[0].sellerPod.value;
+    const orderId = apiKeyQuery.results.bindings[0].order.value;
+
+    const isPaid = await checkPayment(paymentId, mollieApiKey);
+    // Only paid statuses are handled for now.
+    if (isPaid) {
+        if (await confirmPayment(queryEngine, buyerPod, sellerPod, orderId)) {
+            res.send('OK');
+        } else {
+            res.status(500).send('Payment confirmation failed');
+        }
     } else {
-        res.status(500).send('Payment confirmation failed');
+        // For security reasons, we don't want to leak information about an unknown payment id.
+        res.send('OK');
     }
 });
 

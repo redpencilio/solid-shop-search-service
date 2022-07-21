@@ -8,7 +8,7 @@ export async function getSales(sellerWebId) {
     FROM <http://mu.semte.ch/application>
     WHERE {
         ?order a schema:Order;
-            schema:seller "${sellerWebId}";
+            schema:seller <${sellerWebId}>;
             schema:orderStatus ?orderStatus;
             schema:orderDate ?orderDate;
             schema:acceptedOffer ?offer;
