@@ -137,9 +137,11 @@ export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWe
     }`;
 
     try {
-        await update(insertOrderQuery(true));
-        await queryEngine.queryVoid(insertOrderQuery(false), {destination: `${buyerPod}/private/tests/my-offerings.ttl`});
-        await queryEngine.queryVoid(insertOrderQuery(false), {destination: `${sellerPod}/private/tests/my-offerings.ttl`});
+        await Promise.all([
+            update(insertOrderQuery(true)),
+            queryEngine.queryVoid(insertOrderQuery(false), {destination: `${buyerPod}/private/tests/my-offerings.ttl`}),
+            queryEngine.queryVoid(insertOrderQuery(false), {destination: `${sellerPod}/private/tests/my-offerings.ttl`}),
+        ]);
     } catch (e) {
         console.error(e);
         return null;
@@ -168,12 +170,16 @@ export async function confirmPayment(queryEngine, buyerPod, sellerPod, orderUUID
     } ${graphStmt ? '}' : ''}`;
 
     try {
-        await update(deleteQuery(true));
-        await queryEngine.queryVoid(deleteQuery(false), {destination: `${buyerPod}/private/tests/my-offerings.ttl`});
-        await queryEngine.queryVoid(deleteQuery(false), {destination: `${sellerPod}/private/tests/my-offerings.ttl`});
-        await update(insertQuery(true));
-        await queryEngine.queryVoid(insertQuery(false), {destination: `${buyerPod}/private/tests/my-offerings.ttl`});
-        await queryEngine.queryVoid(insertQuery(false), {destination: `${sellerPod}/private/tests/my-offerings.ttl`});
+        await Promise.all([
+            update(deleteQuery(true)),
+            queryEngine.queryVoid(deleteQuery(false), {destination: `${buyerPod}/private/tests/my-offerings.ttl`}),
+            queryEngine.queryVoid(deleteQuery(false), {destination: `${sellerPod}/private/tests/my-offerings.ttl`}),
+        ]);
+        await Promise.all([
+            update(insertQuery(true)),
+            queryEngine.queryVoid(insertQuery(false), {destination: `${buyerPod}/private/tests/my-offerings.ttl`}),
+            queryEngine.queryVoid(insertQuery(false), {destination: `${sellerPod}/private/tests/my-offerings.ttl`}),
+        ]);
     } catch (e) {
         console.error(e);
         return false;
