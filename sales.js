@@ -19,7 +19,8 @@ export async function getSales(sellerWebId) {
             schema:description ?offerDescription;
             schema:price ?offerPrice;
             schema:priceCurrency ?offerCurrency.
-    }`;
+    }
+    ORDER BY ?orderDate`;
 
     return query(salesQuery);
 }
