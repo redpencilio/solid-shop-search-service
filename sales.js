@@ -1,4 +1,4 @@
-import {query} from 'mu';
+import { querySudo as query} from '@lblod/mu-auth-sudo';
 
 export async function getSales(sellerWebId) {
     const salesQuery = `

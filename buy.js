@@ -1,5 +1,5 @@
 import createMollieClient from '@mollie/api-client';
-import {query, update} from 'mu';
+import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
 import {objectToString} from "./helper";
 import {v4 as uuid} from 'uuid'
 
@@ -11,7 +11,7 @@ export async function findOfferingDetails(buyerPod, sellerPod, offeringId) {
     PREFIX gr: <http://purl.org/goodrelations/v1#>
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     SELECT ?product ?currency ?currencyValue ?name ?description ?productName ?productDescription ?pod ?seller ?sellerWebId
-    FROM <http://mu.semte.ch/application>
+    FROM <http://mu.semte.ch/graphs/public>
     WHERE {
         ?product a gr:ProductOrService.
         ?offering a gr:Offering.

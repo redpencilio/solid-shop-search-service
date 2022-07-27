@@ -1,4 +1,4 @@
-import {update} from 'mu';
+import { updateSudo as update } from '@lblod/mu-auth-sudo';
 import {objectToString} from "./helper";
 
 export async function queryPod(queryEngine, pod) {
@@ -46,7 +46,7 @@ export async function queryPod(queryEngine, pod) {
 export async function deleteOld(pod) {
     const query = `
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
-    DELETE { GRAPH <http://mu.semte.ch/application> {
+    DELETE { GRAPH <http://mu.semte.ch/graphs/public> {
         ?s ?p ?o.
     } }
     WHERE {
@@ -64,7 +64,7 @@ export async function insert(quads, pod) {
     const query = `
     PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
-    INSERT DATA { GRAPH <http://mu.semte.ch/application> {
+    INSERT DATA { GRAPH <http://mu.semte.ch/graphs/public> {
       ${triples}
     } }`;
     console.log(query);
