@@ -15,7 +15,7 @@ import {getSales} from "./sales";
 import {getPurchases} from "./purchases";
 
 const queryEngine = new QueryEngine();
-const brokerWebId = 'https://broker.mu/'; // TODO: change to real broker web id
+const brokerWebId = process.env.BROKER_WEB_ID;
 
 app.post('/sync', async (req, res) => {
     const pod = req.body.pod;
