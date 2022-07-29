@@ -1,10 +1,6 @@
-import createMollieClient from '@mollie/api-client';
-import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
+import {querySudo as query, updateSudo as update} from '@lblod/mu-auth-sudo';
 import {objectToString} from "./helper";
 import {v4 as uuid} from 'uuid'
-
-const MOLLIE_REDIRECT_URL = process.env.MOLLIE_REDIRECT_URL;
-const MOLLIE_BASE_WEBHOOK_URL = process.env.MOLLIE_BASE_WEBHOOK_URL;
 
 export async function findOfferingDetails(buyerPod, sellerPod, offeringId) {
     const offeringsQuery = `
@@ -52,58 +48,25 @@ export async function storeMollieApiKey(sellerWebId, apiKey) {
     return update(storeQuery);
 }
 
-export async function getMollieApiKey(sellerWebId) {
-    const queryQuery = `
-    PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
-    SELECT ?mollieApiKey
-    FROM <http://mu.semte.ch/application>
-    WHERE {
-        <${sellerWebId}> ext:mollieApiKey ?mollieApiKey.
-    }`;
-
-    return query(queryQuery);
-}
-
 export async function getPaymentInformationFromPaymentId(paymentId) {
     const queryQuery = `
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     PREFIX schema: <http://schema.org/>
-    SELECT ?mollieApiKey ?buyerPod ?sellerPod ?order
+    SELECT ?orderStatus ?buyerPod ?sellerPod ?order
     FROM <http://mu.semte.ch/application>
     WHERE {
         ?order a schema:Order;
             schema:paymentMethodId "${paymentId}";
+            schema:orderStatus ?orderStatus;
             ext:sellerPod ?sellerPod;
             ext:buyerPod ?buyerPod;
             schema:seller ?seller.
-        ?seller ext:mollieApiKey ?mollieApiKey.
     }`;
 
     return query(queryQuery);
 }
 
-export async function handlePayment(offeringName, price, mollieApiKey) {
-    const mollieClient = createMollieClient({apiKey: mollieApiKey});
-
-    return await mollieClient.payments.create({
-        amount: {
-            value: Number(price).toFixed(2),
-            currency: 'EUR'
-        },
-        description: `Payment for ${offeringName} via The Solid Shop.`,
-        redirectUrl: MOLLIE_REDIRECT_URL,
-        webhookUrl: MOLLIE_BASE_WEBHOOK_URL
-    });
-}
-
-export async function checkPayment(paymentId, apiKey) {
-    const mollieClient = createMollieClient({apiKey: apiKey});
-
-    const payment = await mollieClient.payments.get(paymentId);
-    return (payment?.status === 'paid');
-}
-
-export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWebId, sellerWebId, brokerWebId, paymentId) {
+export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWebId, sellerWebId, brokerWebId) {
     const offerUUID = `${sellerPod}/private/tests/my-offerings.ttl#${uuid()}`;
     const orderUUID = `${sellerPod}/private/tests/my-offerings.ttl#${uuid()}`;
     const orderDate = new Date().toISOString();
@@ -128,8 +91,7 @@ export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWe
             schema:broker <${brokerWebId}>;
             schema:orderDate "${orderDate}";
             ext:sellerPod "${sellerPod}";
-            ext:buyerPod "${buyerPod}";
-            schema:paymentMethodId "${paymentId}".
+            ext:buyerPod "${buyerPod}".
     } ${graphStmt ? '}' : ''}
     WHERE {
         BIND(IRI("${offerUUID}") AS ?offer)
@@ -150,35 +112,39 @@ export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWe
     return {offerUUID, orderUUID};
 }
 
-export async function confirmPayment(queryEngine, buyerPod, sellerPod, orderUUID) {
-    const deleteQuery = (graphStmt) => `
-    PREFIX schema: <http://schema.org/>
-    PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+export async function updateOrder(queryEngine, orderStatus, buyerPod, sellerPod, orderUUID, paymentId) {
+    const deletePodReferencesQuery = `
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
-    DELETE DATA { ${graphStmt ? 'GRAPH <http://mu.semte.ch/application> {' : ''}
+    DELETE DATA { GRAPH <http://mu.semte.ch/application> {
+        <${orderUUID}> ext:sellerPod "${sellerPod}";
+            ext:buyerPod "${buyerPod}".
+    } }`;
+
+    const deleteQuery = `
+    PREFIX schema: <http://schema.org/>
+    PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
+    DELETE DATA {
         <${orderUUID}> schema:orderStatus <http://schema.org/OrderPaymentDue>;
             ext:sellerPod "${sellerPod}";
             ext:buyerPod "${buyerPod}".
-    } ${graphStmt ? '}' : ''}`;
+    }`;
 
-    const insertQuery = (graphStmt) => `
+    const insertQuery = `
     PREFIX schema: <http://schema.org/>
-    PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-    PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
-    INSERT DATA { ${graphStmt ? 'GRAPH <http://mu.semte.ch/application> {' : ''}
-        <${orderUUID}> schema:orderStatus <http://schema.org/OrderDelivered>.
-    } ${graphStmt ? '}' : ''}`;
+    INSERT DATA {
+        <${orderUUID}> schema:orderStatus <${orderStatus}>;
+            schema:paymentMethodId "${paymentId}";
+    }`;
 
     try {
         await Promise.all([
-            update(deleteQuery(true)),
-            queryEngine.queryVoid(deleteQuery(false), {destination: `${buyerPod}/private/tests/my-offerings.ttl`}),
-            queryEngine.queryVoid(deleteQuery(false), {destination: `${sellerPod}/private/tests/my-offerings.ttl`}),
+            update(deletePodReferencesQuery),
+            queryEngine.queryVoid(deleteQuery, {destination: `${buyerPod}/private/tests/my-offerings.ttl`}),
+            queryEngine.queryVoid(deleteQuery, {destination: `${sellerPod}/private/tests/my-offerings.ttl`}),
         ]);
         await Promise.all([
-            update(insertQuery(true)),
-            queryEngine.queryVoid(insertQuery(false), {destination: `${buyerPod}/private/tests/my-offerings.ttl`}),
-            queryEngine.queryVoid(insertQuery(false), {destination: `${sellerPod}/private/tests/my-offerings.ttl`}),
+            queryEngine.queryVoid(insertQuery, {destination: `${buyerPod}/private/tests/my-offerings.ttl`}),
+            queryEngine.queryVoid(insertQuery, {destination: `${sellerPod}/private/tests/my-offerings.ttl`}),
         ]);
     } catch (e) {
         console.error(e);

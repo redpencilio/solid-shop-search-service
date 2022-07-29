@@ -3,16 +3,14 @@ import {QueryEngine} from '@comunica/query-sparql';
 import {queryPod, deleteOld, insert} from './sync';
 import {queryDatabase} from './query';
 import {
-    checkPayment,
-    confirmPayment,
     findOfferingDetails,
-    getMollieApiKey, getPaymentInformationFromPaymentId,
-    handlePayment,
+    getPaymentInformationFromPaymentId,
     saveOrder,
-    storeMollieApiKey
+    storeMollieApiKey, updateOrder
 } from "./buy";
 import {getSales} from "./sales";
 import {getPurchases} from "./purchases";
+import bodyParser from 'body-parser';
 
 const queryEngine = new QueryEngine();
 const brokerWebId = process.env.BROKER_WEB_ID;
@@ -72,17 +70,9 @@ app.post('/buy', async (req, res) => {
     }
     const offering = offerings.results.bindings[0];
 
-    const apiKeyResult = await getMollieApiKey(offering.sellerWebId.value);
-    if (!Array.isArray(apiKeyResult.results.bindings) || !apiKeyResult.results.bindings.length) {
-        res.status(400).send('Seller did not provide payment configuration');
-    }
-    const apiKey = apiKeyResult.results.bindings[0].mollieApiKey.value;
+    const orderInfo = await saveOrder(queryEngine, offering, buyerPod, sellerPod, buyerWebId, offering.sellerWebId.value, brokerWebId);
 
-    const payment = await handlePayment(offering.name.value, offering.currencyValue.value, apiKey);
-
-    await saveOrder(queryEngine, offering, buyerPod, sellerPod, buyerWebId, offering.sellerWebId.value, brokerWebId, payment.id);
-
-    res.redirect(payment.getCheckoutUrl());
+    res.send(JSON.stringify(orderInfo));
 });
 
 app.post('/buy/key', async (req, res) => {
@@ -104,33 +94,28 @@ app.post('/buy/key', async (req, res) => {
     }
 });
 
-app.post('/buy/callback', async (req, res) => {
-    const paymentId = req.body.id;
+app.post('/buy/callback', bodyParser.json(), async (req, res) => {
+    const paymentId = req.body.paymentId;
     if (paymentId === undefined) {
         res.status(400).send('Missing payment id');
         return;
     }
 
-    const apiKeyQuery = await getPaymentInformationFromPaymentId(paymentId);
-    if (!Array.isArray(apiKeyQuery.results.bindings) || apiKeyQuery.results.bindings.length === 0) {
-        throw new Error('No API key found for payment. How was the payment initiated?');
+    console.log('Payment callback for payment id ' + paymentId);
+    const paymentInformation = await getPaymentInformationFromPaymentId(paymentId);
+    if (!Array.isArray(paymentInformation.results.bindings) || paymentInformation.results.bindings.length === 0) {
+        throw new Error(`No payment information found for payment ID '${paymentId}'.`);
     }
-    const mollieApiKey = apiKeyQuery.results.bindings[0].mollieApiKey.value;
-    const buyerPod = apiKeyQuery.results.bindings[0].buyerPod.value;
-    const sellerPod = apiKeyQuery.results.bindings[0].sellerPod.value;
-    const orderId = apiKeyQuery.results.bindings[0].order.value;
+    const orderStatus = paymentInformation.results.bindings[0].orderStatus.value;
+    const buyerPod = paymentInformation.results.bindings[0].buyerPod.value;
+    const sellerPod = paymentInformation.results.bindings[0].sellerPod.value;
+    const orderId = paymentInformation.results.bindings[0].order.value;
+    console.log(`Order status is '${orderStatus}'.`);
 
-    const isPaid = await checkPayment(paymentId, mollieApiKey);
-    // Only paid statuses are handled for now.
-    if (isPaid) {
-        if (await confirmPayment(queryEngine, buyerPod, sellerPod, orderId)) {
-            res.send('OK');
-        } else {
-            res.status(500).send('Payment confirmation failed');
-        }
-    } else {
-        // For security reasons, we don't want to leak information about an unknown payment id.
+    if (await updateOrder(queryEngine, orderStatus, buyerPod, sellerPod, orderId, paymentId)) {
         res.send('OK');
+    } else {
+        res.status(500).send('Order update failed');
     }
 });
 
