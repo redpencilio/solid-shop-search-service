@@ -33,20 +33,23 @@ export async function findOfferingDetails(buyerPod, sellerPod, offeringId) {
 }
 
 export async function storeMollieApiKey(sellerWebId, apiKey) {
-    const storeQuery = `
+    const queryDelete = `
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     DELETE { GRAPH <http://mu.semte.ch/application> {
         <${sellerWebId}> ext:mollieApiKey ?mollieApiKey.
     } }
     WHERE {
         <${sellerWebId}> ext:mollieApiKey ?mollieApiKey.
-    }
-    
+    }`;
+
+    const queryInsert = `
+    PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     INSERT DATA { GRAPH <http://mu.semte.ch/application> {
         <${sellerWebId}> ext:mollieApiKey "${apiKey}".
     } }`;
 
-    return update(storeQuery);
+    await update(queryDelete);
+    return await update(queryInsert);
 }
 
 export async function getPaymentInformationFromPaymentId(paymentId) {
