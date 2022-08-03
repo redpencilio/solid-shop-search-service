@@ -1,7 +1,7 @@
 import { updateSudo as update } from '@lblod/mu-auth-sudo';
 import {objectToString} from "./helper";
 
-export async function queryPod(queryEngine, pod) {
+export async function queryPod(queryEngine, pod, authFetch) {
     return await (await queryEngine.queryQuads(`
   PREFIX gr: <http://purl.org/goodrelations/v1#>
   CONSTRUCT {
@@ -40,6 +40,7 @@ export async function queryPod(queryEngine, pod) {
   }
   `, {
         sources: [`${pod}/private/tests/my-offerings.ttl`, `${pod}/private/tests/my-products.ttl`],
+        fetch: authFetch
     })).toArray();
 }
 
