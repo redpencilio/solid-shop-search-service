@@ -11,6 +11,7 @@ import {
 import {getSales} from "./sales";
 import {getPurchases} from "./purchases";
 import bodyParser from 'body-parser';
+import {getAuthFetchForWebId, saveCSSCredentials} from "./auth-css";
 
 const queryEngine = new QueryEngine();
 const brokerWebId = process.env.BROKER_WEB_ID;
@@ -21,8 +22,14 @@ app.post('/sync', async (req, res) => {
         res.status(400).send('Missing pod');
         return;
     }
+    const webId = req.body.webId;
+    if (webId === undefined) {
+        res.status(400).send('Missing webId');
+        return;
+    }
 
-    const quads = await queryPod(queryEngine, pod);
+    const authFetch = await getAuthFetchForWebId(webId);
+    const quads = await queryPod(queryEngine, pod, authFetch);
 
     await deleteOld(pod);
 
@@ -110,9 +117,11 @@ app.post('/buy/callback', bodyParser.json(), async (req, res) => {
     const buyerPod = paymentInformation.results.bindings[0].buyerPod.value;
     const sellerPod = paymentInformation.results.bindings[0].sellerPod.value;
     const orderId = paymentInformation.results.bindings[0].order.value;
+    const sellerWebId = paymentInformation.results.bindings[0].seller.value;
+    const buyerWebId = paymentInformation.results.bindings[0].customer.value;
     console.log(`Order status is '${orderStatus}'.`);
 
-    if (await updateOrder(queryEngine, orderStatus, buyerPod, sellerPod, orderId, paymentId)) {
+    if (await updateOrder(queryEngine, orderStatus, buyerPod, sellerPod, orderId, paymentId, sellerWebId, buyerWebId)) {
         res.send('OK');
     } else {
         res.status(500).send('Order update failed');
@@ -141,6 +150,42 @@ app.get('/purchases', async (req, res) => {
     const purchases = await getPurchases(buyerWebId);
 
     res.send(JSON.stringify(purchases));
+});
+
+app.post('/profile/credentials', async (req, res) => {
+    const IDPType = decodeURIComponent(req.body.idpType);
+    if (IDPType === undefined) {
+        res.status(400).send('Missing IDPType');
+        return;
+    }
+    const clientWebId = decodeURIComponent(req.body.clientWebId);
+    if (clientWebId === undefined) {
+        res.status(400).send('Missing clientWebId');
+        return;
+    }
+    const clientId = decodeURIComponent(req.body.clientId);
+    if (clientId === undefined) {
+        res.status(400).send('Missing clientId');
+        return;
+    }
+    const clientSecret = decodeURIComponent(req.body.clientSecret);
+    if (clientSecret === undefined) {
+        res.status(400).send('Missing clientSecret');
+        return;
+    }
+    if (IDPType === 'css') {
+        const IDPUrl = decodeURIComponent(req.body.idpUrl);
+        if (IDPUrl === undefined) {
+            res.status(400).send('Missing IDPURL');
+            return;
+        }
+
+        if (await saveCSSCredentials(clientWebId, clientId, clientSecret, IDPUrl)) {
+            res.send('Credentials stored');
+        } else {
+            res.status(500).send('Something went wrong while storing credentials');
+        }
+    }
 });
 
 app.use(errorHandler);

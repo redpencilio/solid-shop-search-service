@@ -1,6 +1,7 @@
 import {querySudo as query, updateSudo as update} from '@lblod/mu-auth-sudo';
 import {objectToString} from "./helper";
 import {v4 as uuid} from 'uuid'
+import {getAuthFetchForWebId} from "./auth-css";
 
 export async function findOfferingDetails(buyerPod, sellerPod, offeringId) {
     const offeringsQuery = `
@@ -52,7 +53,7 @@ export async function getPaymentInformationFromPaymentId(paymentId) {
     const queryQuery = `
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     PREFIX schema: <http://schema.org/>
-    SELECT ?orderStatus ?buyerPod ?sellerPod ?order
+    SELECT ?orderStatus ?buyerPod ?sellerPod ?order ?seller ?customer
     FROM <http://mu.semte.ch/application>
     WHERE {
         ?order a schema:Order;
@@ -60,7 +61,8 @@ export async function getPaymentInformationFromPaymentId(paymentId) {
             schema:orderStatus ?orderStatus;
             ext:sellerPod ?sellerPod;
             ext:buyerPod ?buyerPod;
-            schema:seller ?seller.
+            schema:seller ?seller;
+            schema:customer ?customer;
     }`;
 
     return query(queryQuery);
@@ -101,8 +103,14 @@ export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWe
     try {
         await Promise.all([
             update(insertOrderQuery(true)),
-            queryEngine.queryVoid(insertOrderQuery(false), {destination: `${buyerPod}/private/tests/my-offerings.ttl`}),
-            queryEngine.queryVoid(insertOrderQuery(false), {destination: `${sellerPod}/private/tests/my-offerings.ttl`}),
+            queryEngine.queryVoid(insertOrderQuery(false), {
+                destination: `${buyerPod}/private/tests/my-offerings.ttl`,
+                fetch: await getAuthFetchForWebId(buyerWebId)
+            }),
+            queryEngine.queryVoid(insertOrderQuery(false), {
+                destination: `${sellerPod}/private/tests/my-offerings.ttl`,
+                fetch: await getAuthFetchForWebId(sellerWebId)
+            }),
         ]);
     } catch (e) {
         console.error(e);
@@ -112,7 +120,7 @@ export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWe
     return {offerUUID, orderUUID};
 }
 
-export async function updateOrder(queryEngine, orderStatus, buyerPod, sellerPod, orderUUID, paymentId) {
+export async function updateOrder(queryEngine, orderStatus, buyerPod, sellerPod, orderUUID, paymentId, sellerWebId, buyerWebId) {
     const deletePodReferencesQuery = `
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     DELETE DATA { GRAPH <http://mu.semte.ch/application> {
@@ -136,15 +144,30 @@ export async function updateOrder(queryEngine, orderStatus, buyerPod, sellerPod,
             schema:paymentMethodId "${paymentId}";
     }`;
 
+    const sellerAuthFetch = await getAuthFetchForWebId(sellerWebId);
+    const buyerAuthFetch = await getAuthFetchForWebId(buyerWebId);
+
     try {
         await Promise.all([
             update(deletePodReferencesQuery),
-            queryEngine.queryVoid(deleteQuery, {destination: `${buyerPod}/private/tests/my-offerings.ttl`}),
-            queryEngine.queryVoid(deleteQuery, {destination: `${sellerPod}/private/tests/my-offerings.ttl`}),
+            queryEngine.queryVoid(deleteQuery, {
+                destination: `${buyerPod}/private/tests/my-offerings.ttl`,
+                fetch: buyerAuthFetch
+            }),
+            queryEngine.queryVoid(deleteQuery, {
+                destination: `${sellerPod}/private/tests/my-offerings.ttl`,
+                fetch: sellerAuthFetch
+            }),
         ]);
         await Promise.all([
-            queryEngine.queryVoid(insertQuery, {destination: `${buyerPod}/private/tests/my-offerings.ttl`}),
-            queryEngine.queryVoid(insertQuery, {destination: `${sellerPod}/private/tests/my-offerings.ttl`}),
+            queryEngine.queryVoid(insertQuery, {
+                destination: `${buyerPod}/private/tests/my-offerings.ttl`,
+                fetch: buyerAuthFetch
+            }),
+            queryEngine.queryVoid(insertQuery, {
+                destination: `${sellerPod}/private/tests/my-offerings.ttl`,
+                fetch: sellerAuthFetch
+            }),
         ]);
     } catch (e) {
         console.error(e);
