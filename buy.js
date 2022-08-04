@@ -1,7 +1,7 @@
 import {querySudo as query, updateSudo as update} from '@lblod/mu-auth-sudo';
 import {objectToString} from "./helper";
 import {v4 as uuid} from 'uuid'
-import {getAuthFetchForWebId} from "./auth-css";
+import {getAuthFetchForWebId} from "./auth";
 
 export async function findOfferingDetails(buyerPod, sellerPod, offeringId) {
     const offeringsQuery = `
@@ -72,8 +72,8 @@ export async function getPaymentInformationFromPaymentId(paymentId) {
 }
 
 export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWebId, sellerWebId, brokerWebId) {
-    const offerUUID = `${sellerPod}/private/tests/my-offerings.ttl#${uuid()}`;
-    const orderUUID = `${sellerPod}/private/tests/my-offerings.ttl#${uuid()}`;
+    const offerUUID = `${sellerPod}private/tests/my-offerings.ttl#${uuid()}`;
+    const orderUUID = `${sellerPod}private/tests/my-offerings.ttl#${uuid()}`;
     const orderDate = new Date().toISOString();
 
     // Extra graphStmt boolean because CSS does not support GRAPH statements and update in 'mu' errors 400 without.
@@ -107,11 +107,11 @@ export async function saveOrder(queryEngine, offer, buyerPod, sellerPod, buyerWe
         await Promise.all([
             update(insertOrderQuery(true)),
             queryEngine.queryVoid(insertOrderQuery(false), {
-                destination: `${buyerPod}/private/tests/my-offerings.ttl`,
+                destination: `${buyerPod}private/tests/my-offerings.ttl`,
                 fetch: await getAuthFetchForWebId(buyerWebId)
             }),
             queryEngine.queryVoid(insertOrderQuery(false), {
-                destination: `${sellerPod}/private/tests/my-offerings.ttl`,
+                destination: `${sellerPod}private/tests/my-offerings.ttl`,
                 fetch: await getAuthFetchForWebId(sellerWebId)
             }),
         ]);
@@ -154,21 +154,21 @@ export async function updateOrder(queryEngine, orderStatus, buyerPod, sellerPod,
         await Promise.all([
             update(deletePodReferencesQuery),
             queryEngine.queryVoid(deleteQuery, {
-                destination: `${buyerPod}/private/tests/my-offerings.ttl`,
+                destination: `${buyerPod}private/tests/my-offerings.ttl`,
                 fetch: buyerAuthFetch
             }),
             queryEngine.queryVoid(deleteQuery, {
-                destination: `${sellerPod}/private/tests/my-offerings.ttl`,
+                destination: `${sellerPod}private/tests/my-offerings.ttl`,
                 fetch: sellerAuthFetch
             }),
         ]);
         await Promise.all([
             queryEngine.queryVoid(insertQuery, {
-                destination: `${buyerPod}/private/tests/my-offerings.ttl`,
+                destination: `${buyerPod}private/tests/my-offerings.ttl`,
                 fetch: buyerAuthFetch
             }),
             queryEngine.queryVoid(insertQuery, {
-                destination: `${sellerPod}/private/tests/my-offerings.ttl`,
+                destination: `${sellerPod}private/tests/my-offerings.ttl`,
                 fetch: sellerAuthFetch
             }),
         ]);

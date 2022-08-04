@@ -25,3 +25,7 @@ export function objectToString(object) {
         throw new Error(`Unknown term type ${object.termType}`);
     }
 }
+
+export function ensureTrailingSlash(url) {
+    return url.endsWith('/') ? url : url + '/';
+}
