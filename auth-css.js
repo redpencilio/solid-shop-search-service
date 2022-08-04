@@ -12,10 +12,11 @@ export async function saveCSSCredentials(clientWebId, clientId, clientSecret, ID
             ext:IDPType ?IDPType.
     } }
     WHERE {
-        <${clientWebId}> ext:clientId ?clientId;
+        <${clientWebId}> ext:IDPType ?IDPType.
+        OPTIONAL { <${clientWebId}> ext:clientId ?clientId;
             ext:clientSecret ?clientSecret;
-            ext:IDPUrl ?IDPUrl;
-            ext:IDPType ?IDPType.
+            ext:IDPUrl ?IDPUrl. 
+        }
     }`;
 
     const queryInsert = `

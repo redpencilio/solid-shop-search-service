@@ -11,17 +11,28 @@ import {
 import {getSales} from "./sales";
 import {getPurchases} from "./purchases";
 import bodyParser from 'body-parser';
-import {getAuthFetchForWebId, saveCSSCredentials} from "./auth-css";
+import {saveCSSCredentials} from "./auth-css";
+import {getAuthFetchForWebId} from "./auth";
+import {authApplicationWebIdESS, saveESSCredentials} from "./auth-ess";
+import cookieSession from "cookie-session";
+import {ensureTrailingSlash} from "./helper";
 
 const queryEngine = new QueryEngine();
 const brokerWebId = process.env.BROKER_WEB_ID;
 
+app.use(cookieSession({
+    name: 'session',
+    keys: ['key1', 'key2'],
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+}));
+
 app.post('/sync', async (req, res) => {
-    const pod = req.body.pod;
+    let pod = req.body.pod;
     if (pod === undefined) {
         res.status(400).send('Missing pod');
         return;
     }
+    pod = ensureTrailingSlash(pod);
     const webId = req.body.webId;
     if (webId === undefined) {
         res.status(400).send('Missing webId');
@@ -49,21 +60,23 @@ app.get('/query', async (req, res) => {
 });
 
 app.post('/buy', async (req, res) => {
-    const buyerPod = req.body.buyerPod;
+    let buyerPod = req.body.buyerPod;
     if (buyerPod === undefined) {
         res.status(400).send('Missing buyerPod');
         return;
     }
+    buyerPod = ensureTrailingSlash(buyerPod);
     const buyerWebId = req.body.buyerWebId;
     if (buyerWebId === undefined) {
         res.status(400).send('Missing buyerWebId');
         return;
     }
-    const sellerPod = req.body.sellerPod;
+    let sellerPod = req.body.sellerPod;
     if (sellerPod === undefined) {
         res.status(400).send('Missing sellerPod');
         return;
     }
+    sellerPod = ensureTrailingSlash(sellerPod);
     const offeringId = req.body.offeringId;
     if (offeringId === undefined) {
         res.status(400).send('Missing offeringId');
@@ -114,8 +127,8 @@ app.post('/buy/callback', bodyParser.json(), async (req, res) => {
         throw new Error(`No payment information found for payment ID '${paymentId}'.`);
     }
     const orderStatus = paymentInformation.results.bindings[0].orderStatus.value;
-    const buyerPod = paymentInformation.results.bindings[0].buyerPod.value;
-    const sellerPod = paymentInformation.results.bindings[0].sellerPod.value;
+    const buyerPod = ensureTrailingSlash(paymentInformation.results.bindings[0].buyerPod.value);
+    const sellerPod = ensureTrailingSlash(paymentInformation.results.bindings[0].sellerPod.value);
     const orderId = paymentInformation.results.bindings[0].order.value;
     const sellerWebId = paymentInformation.results.bindings[0].seller.value;
     const buyerWebId = paymentInformation.results.bindings[0].customer.value;
@@ -163,17 +176,17 @@ app.post('/profile/credentials', async (req, res) => {
         res.status(400).send('Missing clientWebId');
         return;
     }
-    const clientId = decodeURIComponent(req.body.clientId);
-    if (clientId === undefined) {
-        res.status(400).send('Missing clientId');
-        return;
-    }
-    const clientSecret = decodeURIComponent(req.body.clientSecret);
-    if (clientSecret === undefined) {
-        res.status(400).send('Missing clientSecret');
-        return;
-    }
     if (IDPType === 'css') {
+        const clientId = decodeURIComponent(req.body.clientId);
+        if (clientId === undefined) {
+            res.status(400).send('Missing clientId');
+            return;
+        }
+        const clientSecret = decodeURIComponent(req.body.clientSecret);
+        if (clientSecret === undefined) {
+            res.status(400).send('Missing clientSecret');
+            return;
+        }
         const IDPUrl = decodeURIComponent(req.body.idpUrl);
         if (IDPUrl === undefined) {
             res.status(400).send('Missing IDPURL');
@@ -185,7 +198,19 @@ app.post('/profile/credentials', async (req, res) => {
         } else {
             res.status(500).send('Something went wrong while storing credentials');
         }
+    } else if (IDPType === 'ess') {
+        if (await saveESSCredentials(clientWebId)) {
+            res.send('Credentials stored');
+        } else {
+            res.status(500).send('Something went wrong while storing credentials');
+        }
+    } else {
+        res.status(400).send('Unknown IDP type');
     }
+});
+
+app.get('/auth/ess/webId', async (req, res) => {
+    res.send(JSON.stringify({webId: authApplicationWebIdESS}));
 });
 
 app.use(errorHandler);

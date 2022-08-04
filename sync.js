@@ -39,7 +39,7 @@ export async function queryPod(queryEngine, pod, authFetch) {
         gr:offers ?offering.
   }
   `, {
-        sources: [`${pod}/private/tests/my-offerings.ttl`, `${pod}/private/tests/my-products.ttl`],
+        sources: [`${pod}private/tests/my-offerings.ttl`, `${pod}private/tests/my-products.ttl`],
         fetch: authFetch
     })).toArray();
 }

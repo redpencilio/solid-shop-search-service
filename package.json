@@ -15,8 +15,10 @@
   "dependencies": {
     "@comunica/query-sparql": "^2.3.0",
     "@inrupt/solid-client-authn-core": "^1.12.2",
+    "@inrupt/solid-client-authn-node": "^1.12.2",
     "@lblod/mu-auth-sudo": "^0.6.0",
     "body-parser": "^1.20.0",
+    "cookie-session": "^2.0.0",
     "node-fetch": "^2.6.7",
     "uuid": "^8.3.2"
   }
