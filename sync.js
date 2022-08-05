@@ -4,6 +4,7 @@ import {objectToString} from "./helper";
 export async function queryPod(queryEngine, pod, authFetch) {
     return await (await queryEngine.queryQuads(`
   PREFIX gr: <http://purl.org/goodrelations/v1#>
+  PREFIX schema: <http://schema.org/>
   CONSTRUCT {
     ?priceSpecification a gr:PriceSpecification;
         gr:hasCurrency ?currency;
@@ -15,7 +16,8 @@ export async function queryPod(queryEngine, pod, authFetch) {
         gr:hasPriceSpecification ?priceSpecification.
     ?product a gr:ProductOrService;
         gr:name ?productName;
-        gr:description ?productDescription.
+        gr:description ?productDescription;
+        schema:image ?image.
     ?seller a gr:BusinessEntity;
         gr:legalName ?sellerLegalName;
         gr:description ?sellerWebId;
@@ -32,7 +34,8 @@ export async function queryPod(queryEngine, pod, authFetch) {
         gr:hasPriceSpecification ?priceSpecification.
     ?product a gr:ProductOrService;
         gr:name ?productName;
-        gr:description ?productDescription.
+        gr:description ?productDescription;
+        schema:image ?image.
     ?seller a gr:BusinessEntity;
         gr:legalName ?sellerLegalName;
         gr:description ?sellerWebId;
