@@ -27,7 +27,7 @@ export async function getAuthFetchForWebId(webId) {
 
     switch (idpType) {
         case 'css':
-            return getAuthFetchForWebIdCSS(webId);
+            return await getAuthFetchForWebIdCSS(webId);
         case 'ess':
             return authFetchESS;
         default:
