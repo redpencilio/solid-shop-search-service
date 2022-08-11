@@ -1,24 +1,28 @@
 import {app, errorHandler} from 'mu';
 import {QueryEngine} from '@comunica/query-sparql';
-import {queryPod, deleteOld, insert} from './sync';
+import {deleteOld, insert, queryPod} from './sync';
 import {queryDatabase} from './query';
-import {
-    findOfferingDetails,
-    getPaymentInformationFromPaymentId,
-    saveOrder,
-    storeMollieApiKey, updateOrder
-} from "./buy";
+import {storeMollieApiKey, updatePods} from "./buy";
 import {getSales} from "./sales";
 import {getPurchases} from "./purchases";
-import bodyParser from 'body-parser';
 import {saveCSSCredentials} from "./auth-css";
 import {getAuthFetchForWebId} from "./auth";
 import {authApplicationWebIdESS, saveESSCredentials} from "./auth-ess";
 import cookieSession from "cookie-session";
 import {ensureTrailingSlash} from "./helper";
+import {discoverPendingTasks, setTaskStatus} from "./config/tasks";
+import extractTriples from "./config/extract";
 
 const queryEngine = new QueryEngine();
-const brokerWebId = process.env.BROKER_WEB_ID;
+
+/**
+ * @enum {TaskStatus}
+ */
+export const TaskStatus = {
+    PENDING: 'pending',
+    DONE: 'done',
+    FAILED: 'failed'
+}
 
 app.use(cookieSession({
     name: 'session',
@@ -59,41 +63,27 @@ app.get('/query', async (req, res) => {
     res.send(JSON.stringify(offerings));
 });
 
-app.post('/buy', async (req, res) => {
-    let buyerPod = req.body.buyerPod;
-    if (buyerPod === undefined) {
-        res.status(400).send('Missing buyerPod');
-        return;
-    }
-    buyerPod = ensureTrailingSlash(buyerPod);
-    const buyerWebId = req.body.buyerWebId;
-    if (buyerWebId === undefined) {
-        res.status(400).send('Missing buyerWebId');
-        return;
-    }
-    let sellerPod = req.body.sellerPod;
-    if (sellerPod === undefined) {
-        res.status(400).send('Missing sellerPod');
-        return;
-    }
-    sellerPod = ensureTrailingSlash(sellerPod);
-    const offeringId = req.body.offeringId;
-    if (offeringId === undefined) {
-        res.status(400).send('Missing offeringId');
-        return;
+app.post('/delta', async (req, res) => {
+    // A new order created task was created, check the tasks to find the details.
+    const tasks = await discoverPendingTasks();
+
+    if (Array.isArray(tasks.results.bindings) && tasks.results.bindings.length) {
+        for (const task of tasks.results.bindings) {
+            const orderTriples = await extractTriples(task.task.value);
+            let succeeded;
+            try {
+                await updatePods(queryEngine, orderTriples);
+                succeeded = true;
+            } catch (_) {
+                succeeded = false;
+            }
+            await setTaskStatus(task.task.value, succeeded ? TaskStatus.DONE : TaskStatus.FAILED);
+        }
     }
 
-    const offerings = await findOfferingDetails(buyerPod, sellerPod, offeringId);
-    if (!Array.isArray(offerings.results.bindings) || !offerings.results.bindings.length) {
-        res.status(404).send('Offering not found');
-        return;
-    }
-    const offering = offerings.results.bindings[0];
-
-    const orderInfo = await saveOrder(queryEngine, offering, buyerPod, sellerPod, buyerWebId, offering.sellerWebId.value, brokerWebId);
-
-    res.send(JSON.stringify(orderInfo));
+    res.send('OK');
 });
+
 
 app.post('/buy/key', async (req, res) => {
     const sellerWebId = decodeURIComponent(req.body.sellerWebId);
@@ -111,33 +101,6 @@ app.post('/buy/key', async (req, res) => {
         res.send('API key stored');
     } else {
         res.status(500).send('API key not stored');
-    }
-});
-
-app.post('/buy/callback', bodyParser.json(), async (req, res) => {
-    const paymentId = req.body.paymentId;
-    if (paymentId === undefined) {
-        res.status(400).send('Missing payment id');
-        return;
-    }
-
-    console.log('Payment callback for payment id ' + paymentId);
-    const paymentInformation = await getPaymentInformationFromPaymentId(paymentId);
-    if (!Array.isArray(paymentInformation.results.bindings) || paymentInformation.results.bindings.length === 0) {
-        throw new Error(`No payment information found for payment ID '${paymentId}'.`);
-    }
-    const orderStatus = paymentInformation.results.bindings[0].orderStatus.value;
-    const buyerPod = ensureTrailingSlash(paymentInformation.results.bindings[0].buyerPod.value);
-    const sellerPod = ensureTrailingSlash(paymentInformation.results.bindings[0].sellerPod.value);
-    const orderId = paymentInformation.results.bindings[0].order.value;
-    const sellerWebId = paymentInformation.results.bindings[0].seller.value;
-    const buyerWebId = paymentInformation.results.bindings[0].customer.value;
-    console.log(`Order status is '${orderStatus}'.`);
-
-    if (await updateOrder(queryEngine, orderStatus, buyerPod, sellerPod, orderId, paymentId, sellerWebId, buyerWebId)) {
-        res.send('OK');
-    } else {
-        res.status(500).send('Order update failed');
     }
 });
 
