@@ -1,7 +1,7 @@
 import {app, errorHandler} from 'mu';
 import {QueryEngine} from '@comunica/query-sparql';
 import {deleteOld, insert, queryPod} from './sync';
-import {storeMollieApiKey, updatePods} from "./buy";
+import {updatePods} from "./buy";
 import {saveCSSCredentials} from "./auth-css";
 import {getAuthFetchForWebId} from "./auth";
 import {authApplicationWebIdESS, saveESSCredentials} from "./auth-ess";
@@ -73,26 +73,6 @@ app.post('/delta', async (req, res) => {
     }
 
     res.send('OK');
-});
-
-
-app.post('/buy/key', async (req, res) => {
-    const sellerWebId = decodeURIComponent(req.body.sellerWebId);
-    if (sellerWebId === undefined) {
-        res.status(400).send('Missing sellerWebId');
-        return;
-    }
-    const apiKey = req.body.apiKey;
-    if (apiKey === undefined) {
-        res.status(400).send('Missing apiKey');
-        return;
-    }
-
-    if (await storeMollieApiKey(sellerWebId, apiKey)) {
-        res.send('API key stored');
-    } else {
-        res.status(500).send('API key not stored');
-    }
 });
 
 app.post('/profile/credentials', async (req, res) => {
