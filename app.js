@@ -3,8 +3,6 @@ import {QueryEngine} from '@comunica/query-sparql';
 import {deleteOld, insert, queryPod} from './sync';
 import {queryDatabase} from './query';
 import {storeMollieApiKey, updatePods} from "./buy";
-import {getSales} from "./sales";
-import {getPurchases} from "./purchases";
 import {saveCSSCredentials} from "./auth-css";
 import {getAuthFetchForWebId} from "./auth";
 import {authApplicationWebIdESS, saveESSCredentials} from "./auth-ess";
@@ -102,30 +100,6 @@ app.post('/buy/key', async (req, res) => {
     } else {
         res.status(500).send('API key not stored');
     }
-});
-
-app.get('/sales', async (req, res) => {
-    const sellerWebId = decodeURIComponent(req.query.sellerWebId);
-    if (sellerWebId === undefined) {
-        res.status(400).send('Missing sellerWebId');
-        return;
-    }
-
-    const sales = await getSales(sellerWebId);
-
-    res.send(JSON.stringify(sales));
-});
-
-app.get('/purchases', async (req, res) => {
-    const buyerWebId = decodeURIComponent(req.query.buyerWebId);
-    if (buyerWebId === undefined) {
-        res.status(400).send('Missing buyerWebId');
-        return;
-    }
-
-    const purchases = await getPurchases(buyerWebId);
-
-    res.send(JSON.stringify(purchases));
 });
 
 app.post('/profile/credentials', async (req, res) => {
