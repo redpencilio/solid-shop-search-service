@@ -1,7 +1,6 @@
 import {app, errorHandler} from 'mu';
 import {QueryEngine} from '@comunica/query-sparql';
 import {deleteOld, insert, queryPod} from './sync';
-import {queryDatabase} from './query';
 import {storeMollieApiKey, updatePods} from "./buy";
 import {saveCSSCredentials} from "./auth-css";
 import {getAuthFetchForWebId} from "./auth";
@@ -53,12 +52,6 @@ app.post('/sync', async (req, res) => {
         .catch(function (err) {
             res.send("Oops something went wrong: " + JSON.stringify(err));
         });
-});
-
-app.get('/query', async (req, res) => {
-    const offerings = await queryDatabase(req.query.name, req.query.description, req.query.seller);
-
-    res.send(JSON.stringify(offerings));
 });
 
 app.post('/delta', async (req, res) => {
