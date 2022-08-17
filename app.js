@@ -1,6 +1,6 @@
 import {app, errorHandler} from 'mu';
 import {QueryEngine} from '@comunica/query-sparql';
-import {updateDatabase, updatePods} from "./buy";
+import {updateDatabase, updatePods} from "./sync";
 import {saveCSSCredentials} from "./auth-css";
 import {authApplicationWebIdESS, saveESSCredentials} from "./auth-ess";
 import cookieSession from "cookie-session";
