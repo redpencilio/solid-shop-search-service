@@ -52,7 +52,7 @@ app.post('/delta', async (req, res) => {
     res.send('OK');
 });
 
-app.post('/profile/credentials', async (req, res) => {
+app.post('/auth/credentials', async (req, res) => {
     const IDPType = decodeURIComponent(req.body.idpType);
     if (IDPType === undefined) {
         res.status(400).send('Missing IDPType');
