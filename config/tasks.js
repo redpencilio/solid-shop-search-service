@@ -1,3 +1,4 @@
+import {sparqlEscapeUri, sparqlEscapeString} from 'mu';
 import {querySudo as query, updateSudo as update} from '@lblod/mu-auth-sudo';
 import {TaskStatus} from "../app";
 
@@ -42,13 +43,13 @@ export async function setTaskStatus(taskId, status) {
     const queryUpdate = `
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     DELETE { GRAPH <http://mu.semte.ch/graphs/tasks> {
-        <${taskId}> ext:taskStatus ?taskStatus.
+        ${sparqlEscapeUri(taskId)} ext:taskStatus ?taskStatus.
     } }
     INSERT { GRAPH <http://mu.semte.ch/graphs/tasks> {
-        <${taskId}> ext:taskStatus "${statusString}".
+        ${sparqlEscapeUri(taskId)} ext:taskStatus ${sparqlEscapeString(statusString)}.
     } }
     WHERE {
-        <${taskId}> ext:taskStatus ?taskStatus.
+        ${sparqlEscapeUri(taskId)} ext:taskStatus ?taskStatus.
     }`;
 
     return await update(queryUpdate);

@@ -1,3 +1,4 @@
+import {sparqlEscapeUri, sparqlEscapeString} from 'mu';
 import {buildAuthenticatedFetch, createDpopHeader, generateDpopKeyPair} from '@inrupt/solid-client-authn-core';
 import {querySudo as query, updateSudo as update} from '@lblod/mu-auth-sudo';
 import fetch from 'node-fetch';
@@ -6,14 +7,14 @@ export async function saveCSSCredentials(clientWebId, clientId, clientSecret, ID
     const queryDelete = `
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     DELETE { GRAPH <http://mu.semte.ch/application> {
-        <${clientWebId}> ext:clientId ?clientId;
+        ${sparqlEscapeUri(clientWebId)} ext:clientId ?clientId;
             ext:clientSecret ?clientSecret;
             ext:IDPUrl ?IDPUrl;
             ext:IDPType ?IDPType.
     } }
     WHERE {
-        <${clientWebId}> ext:IDPType ?IDPType.
-        OPTIONAL { <${clientWebId}> ext:clientId ?clientId;
+        ${sparqlEscapeUri(clientWebId)} ext:IDPType ?IDPType.
+        OPTIONAL { ${sparqlEscapeUri(clientWebId)} ext:clientId ?clientId;
             ext:clientSecret ?clientSecret;
             ext:IDPUrl ?IDPUrl. 
         }
@@ -22,9 +23,9 @@ export async function saveCSSCredentials(clientWebId, clientId, clientSecret, ID
     const queryInsert = `
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     INSERT DATA { GRAPH <http://mu.semte.ch/application> {
-        <${clientWebId}> ext:clientId "${clientId}";
-            ext:clientSecret "${clientSecret}";
-            ext:IDPUrl "${IDPUrl}";
+        ${sparqlEscapeUri(clientWebId)} ext:clientId ${sparqlEscapeString(clientId)};
+            ext:clientSecret ${sparqlEscapeString(clientSecret)};
+            ext:IDPUrl ${sparqlEscapeString(IDPUrl)};
             ext:IDPType "css".   
     } }`;
 
@@ -38,7 +39,7 @@ export async function getCSSCredentials(clientWebId) {
     SELECT ?clientId ?clientSecret ?IDPUrl
     FROM <http://mu.semte.ch/application>
     WHERE {
-        <${clientWebId}> ext:clientId ?clientId;
+        ${sparqlEscapeUri(clientWebId)} ext:clientId ?clientId;
             ext:clientSecret ?clientSecret;
             ext:IDPUrl ?IDPUrl;
             ext:IDPType "css".

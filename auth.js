@@ -1,3 +1,4 @@
+import {sparqlEscapeUri} from 'mu';
 import {querySudo as query} from '@lblod/mu-auth-sudo';
 import {getAuthFetchForWebId as getAuthFetchForWebIdCSS} from "./auth-css";
 import {authFetchESS} from "./auth-ess";
@@ -8,7 +9,7 @@ export async function getIdpType(webId) {
     SELECT ?IDPType
     FROM <http://mu.semte.ch/application>
     WHERE {
-        <${webId}> ext:IDPType ?IDPType.
+        ${sparqlEscapeUri(webId)} ext:IDPType ?IDPType.
     }`;
 
     const result = await query(queryQuery);

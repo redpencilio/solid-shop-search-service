@@ -105,7 +105,7 @@ async function findOrderDetails(orderId) {
     PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     CONSTRUCT {
-        <${orderId}> a schema:Order;
+        ${sparqlEscapeUri(orderId)} a schema:Order;
             schema:acceptedOffer ?offer;
             schema:orderStatus ?orderStatus;
             schema:seller ?sellerWebId;
@@ -123,7 +123,7 @@ async function findOrderDetails(orderId) {
     }
     FROM <http://mu.semte.ch/application>
     WHERE {
-        <${orderId}> a schema:Order;
+        ${sparqlEscapeUri(orderId)} a schema:Order;
             schema:acceptedOffer ?offer;
             schema:orderStatus ?orderStatus;
             schema:seller ?sellerWebId;
@@ -150,7 +150,7 @@ async function getPaymentInformationFromOrderId(orderId) {
     SELECT ?orderStatus ?buyerPod ?sellerPod ?paymentId ?seller ?customer
     FROM <http://mu.semte.ch/application>
     WHERE {
-        <${orderId}> a schema:Order;
+        ${sparqlEscapeUri(orderId)} a schema:Order;
             schema:paymentMethodId ?paymentId;
             schema:orderStatus ?orderStatus;
             ext:sellerPod ?sellerPod;
