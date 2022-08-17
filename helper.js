@@ -6,7 +6,11 @@ export function objectToString(object) {
     } else if (object.termType === 'BlankNode') {
         return `_:${object.value}`;
     } else if (object.termType === 'Literal') {
-        return `${sparqlEscapeString(object.value)}^^${sparqlEscapeUri(object.datatype.value)}`;
+        if ('dataType' in object) {
+            return `${sparqlEscapeString(object.value)}^^${sparqlEscapeUri(object.datatype.value)}`;
+        } else {
+            return `${sparqlEscapeString(object.value)}`;
+        }
     } else if (object.type === 'typed-literal') {
         return objectToString({value: object.value, termType: 'Literal', datatype: {value: object.datatype}});
     } else {

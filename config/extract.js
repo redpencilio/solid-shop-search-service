@@ -1,22 +1,27 @@
 import {sparqlEscapeUri} from 'mu';
 import {querySudo as query} from "@lblod/mu-auth-sudo";
-import {getPaymentInformationFromOrderId} from "../buy";
 import {ensureTrailingSlash} from "../helper";
+import {getAuthFetchForWebId} from "../auth";
 
-export default async function extractTriples(taskId) {
+const MU_SPARQL_ENDPOINT = process.env.MU_SPARQL_ENDPOINT;
+
+export default async function extractTriples(taskId, queryEngine) {
     const queryQuery = `
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
-    SELECT ?orderId ?taskType
+    SELECT ?orderId ?taskType ?pod ?webId
     FROM <http://mu.semte.ch/graphs/tasks>
     WHERE {
         ${sparqlEscapeUri(taskId)} a ext:Task;
             ext:taskType ?taskType;
-            ext:taskStatus "pending";
-            ext:order ?orderId.
+            ext:taskStatus "pending".
+        OPTIONAL { ${sparqlEscapeUri(taskId)} ext:order ?orderId. }
+        OPTIONAL { ${sparqlEscapeUri(taskId)} ext:pod ?pod; ext:webId ?webId. }
     }`;
 
     const result = await query(queryQuery);
     const orderId = result.results?.bindings[0]?.orderId?.value;
+    const pod = result.results?.bindings[0]?.pod?.value;
+    const webId = result.results?.bindings[0]?.webId?.value;
     const taskType = result.results?.bindings[0]?.taskType?.value;
 
     if (taskType === 'http://mu.semte.ch/vocabularies/ext/SavedOrderTask') {
@@ -77,6 +82,20 @@ export default async function extractTriples(taskId) {
             deleteTriples,
             insertTriples
         }];
+    } else if (taskType === 'http://mu.semte.ch/vocabularies/ext/SyncOfferingsTask') {
+        const authFetch = await getAuthFetchForWebId(webId);
+        let triples = await queryPod(queryEngine, pod, authFetch);
+
+        const oldOfferingTriples = (await getOldOfferingTriples(queryEngine, pod));
+
+        // Add ext:pod triples for each subject.
+        triples = triples.concat(triples.filter(triple => triple.predicate.value === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type').map(triple => ({
+            subject: triple.subject,
+            predicate: {value: 'http://mu.semte.ch/vocabularies/ext/pod', termType: 'NamedNode'},
+            object: {value: pod, termType: 'NamedNode'}
+        })));
+
+        return [{graph: 'http://mu.semte.ch/graphs/public', deleteTriples: oldOfferingTriples, insertTriples: triples}];
     }
 }
 
@@ -122,4 +141,88 @@ async function findOrderDetails(orderId) {
     }`;
 
     return query(orderQuery);
+}
+
+async function getPaymentInformationFromOrderId(orderId) {
+    const queryQuery = `
+    PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
+    PREFIX schema: <http://schema.org/>
+    SELECT ?orderStatus ?buyerPod ?sellerPod ?paymentId ?seller ?customer
+    FROM <http://mu.semte.ch/application>
+    WHERE {
+        <${orderId}> a schema:Order;
+            schema:paymentMethodId ?paymentId;
+            schema:orderStatus ?orderStatus;
+            ext:sellerPod ?sellerPod;
+            ext:buyerPod ?buyerPod;
+            schema:seller ?seller;
+            schema:customer ?customer.
+    }`;
+
+    return query(queryQuery);
+}
+
+async function queryPod(queryEngine, pod, authFetch) {
+    return await (await queryEngine.queryQuads(`
+  PREFIX gr: <http://purl.org/goodrelations/v1#>
+  PREFIX schema: <http://schema.org/>
+  CONSTRUCT {
+    ?priceSpecification a gr:PriceSpecification;
+        gr:hasCurrency ?currency;
+        gr:hasCurrencyValue ?currencyValue.
+    ?offering a gr:Offering;
+        gr:name ?name;
+        gr:description ?description;
+        gr:includes ?product;
+        gr:hasPriceSpecification ?priceSpecification.
+    ?product a gr:ProductOrService;
+        gr:name ?productName;
+        gr:description ?productDescription;
+        schema:image ?image.
+    ?seller a gr:BusinessEntity;
+        gr:legalName ?sellerLegalName;
+        gr:description ?sellerWebId;
+        gr:offers ?offering.
+  }
+  WHERE {
+    ?priceSpecification a gr:PriceSpecification;
+        gr:hasCurrency ?currency;
+        gr:hasCurrencyValue ?currencyValue.
+    ?offering a gr:Offering;
+        gr:name ?name;
+        gr:description ?description;
+        gr:includes ?product;
+        gr:hasPriceSpecification ?priceSpecification.
+    ?product a gr:ProductOrService;
+        gr:name ?productName;
+        gr:description ?productDescription;
+        schema:image ?image.
+    ?seller a gr:BusinessEntity;
+        gr:legalName ?sellerLegalName;
+        gr:description ?sellerWebId;
+        gr:offers ?offering.
+  }
+  `, {
+        sources: [`${pod}private/tests/my-offerings.ttl`, `${pod}private/tests/my-products.ttl`],
+        fetch: authFetch
+    })).toArray();
+}
+
+async function getOldOfferingTriples(queryEngine, pod) {
+    const queryTriples = `
+    PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
+    CONSTRUCT FROM <http://mu.semte.ch/graphs/public>
+    WHERE {
+        ?s ext:pod ${sparqlEscapeUri(pod)};
+            ?p ?o.
+    }`;
+
+    // Uses Comunica, as sparql-client does not support CONSTRUCT WHERE.
+    // Also gives us the advantage that the output format is the same as the queryPod function.
+    return await (await queryEngine.queryQuads(queryTriples, {
+        sources: [{
+            type: 'sparql',
+            value: MU_SPARQL_ENDPOINT
+        }]
+    })).toArray();
 }
