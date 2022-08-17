@@ -1,3 +1,4 @@
+import {sparqlEscapeUri} from 'mu';
 import {Session} from "@inrupt/solid-client-authn-node";
 import {updateSudo as update} from "@lblod/mu-auth-sudo";
 
@@ -23,14 +24,14 @@ export async function saveESSCredentials(clientWebId) {
     const queryDelete = `
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     DELETE { GRAPH <http://mu.semte.ch/application> {
-        <${clientWebId}> ext:clientId ?clientId;
+        ${sparqlEscapeUri(clientWebId)} ext:clientId ?clientId;
             ext:clientSecret ?clientSecret;
             ext:IDPUrl ?IDPUrl;
             ext:IDPType ?IDPType.
     } }
     WHERE {
-        <${clientWebId}> ext:IDPType ?IDPType.
-        OPTIONAL { <${clientWebId}> ext:clientId ?clientId;
+        ${sparqlEscapeUri(clientWebId)} ext:IDPType ?IDPType.
+        OPTIONAL { ${sparqlEscapeUri(clientWebId)} ext:clientId ?clientId;
             ext:clientSecret ?clientSecret;
             ext:IDPUrl ?IDPUrl. 
         }
@@ -39,7 +40,7 @@ export async function saveESSCredentials(clientWebId) {
     const queryInsert = `
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
     INSERT DATA { GRAPH <http://mu.semte.ch/application> {
-        <${clientWebId}> ext:IDPType "ess".
+        ${sparqlEscapeUri(clientWebId)} ext:IDPType "ess".
     } }`;
 
     await update(queryDelete);
