@@ -4,14 +4,14 @@ import {TaskStatus} from "../app";
 export async function discoverPendingTasks() {
     const queryQuery = `
     PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
-    SELECT DISTINCT ?task ?orderId
+    SELECT DISTINCT ?task ?orderId ?dataFlow
     FROM <http://mu.semte.ch/graphs/tasks>
     WHERE {
         ?task a ext:Task;
             ext:taskType ?taskType;
-            ext:taskStatus "pending";
-            ext:order ?orderId.
-        VALUES ?taskType { ext:SavedOrderTask ext:UpdatedOrderTask }
+            ext:dataFlow ?dataFlow;
+            ext:taskStatus "pending".
+        VALUES ?taskType { ext:SavedOrderTask ext:UpdatedOrderTask ext:SyncOfferingsTask }
     }`;
 
     return query(queryQuery);

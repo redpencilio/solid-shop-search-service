@@ -1,12 +1,9 @@
 import {app, errorHandler} from 'mu';
 import {QueryEngine} from '@comunica/query-sparql';
-import {deleteOld, insert, queryPod} from './sync';
-import {updatePods} from "./buy";
+import {updateDatabase, updatePods} from "./buy";
 import {saveCSSCredentials} from "./auth-css";
-import {getAuthFetchForWebId} from "./auth";
 import {authApplicationWebIdESS, saveESSCredentials} from "./auth-ess";
 import cookieSession from "cookie-session";
-import {ensureTrailingSlash} from "./helper";
 import {discoverPendingTasks, setTaskStatus} from "./config/tasks";
 import extractTriples from "./config/extract";
 
@@ -27,44 +24,24 @@ app.use(cookieSession({
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
 }));
 
-app.post('/sync', async (req, res) => {
-    let pod = req.body.pod;
-    if (pod === undefined) {
-        res.status(400).send('Missing pod');
-        return;
-    }
-    pod = ensureTrailingSlash(pod);
-    const webId = req.body.webId;
-    if (webId === undefined) {
-        res.status(400).send('Missing webId');
-        return;
-    }
-
-    const authFetch = await getAuthFetchForWebId(webId);
-    const quads = await queryPod(queryEngine, pod, authFetch);
-
-    await deleteOld(pod);
-
-    insert(quads, pod)
-        .then(function (response) {
-            res.send(JSON.stringify(response));
-        })
-        .catch(function (err) {
-            res.send("Oops something went wrong: " + JSON.stringify(err));
-        });
-});
-
 app.post('/delta', async (req, res) => {
-    // A new order created task was created, check the tasks to find the details.
     const tasks = await discoverPendingTasks();
 
     if (Array.isArray(tasks.results.bindings) && tasks.results.bindings.length) {
         for (const task of tasks.results.bindings) {
-            const orderTriples = await extractTriples(task.task.value);
+            const triples = await extractTriples(task.task.value, queryEngine);
             let succeeded;
             try {
-                await updatePods(queryEngine, orderTriples);
-                succeeded = true;
+                if (task.dataFlow.value === 'http://mu.semte.ch/vocabularies/ext/DbToPod') {
+                    await updatePods(queryEngine, triples);
+                    succeeded = true;
+                } else if (task.dataFlow.value === 'http://mu.semte.ch/vocabularies/ext/PodToDb') {
+                    await updateDatabase(triples);
+                    succeeded = true;
+                } else {
+                    console.error(`Unknown data flow: ${task.dataFlow.value}`);
+                    succeeded = false;
+                }
             } catch (_) {
                 succeeded = false;
             }
