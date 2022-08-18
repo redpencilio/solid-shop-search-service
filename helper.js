@@ -7,6 +7,8 @@ export function objectToString(object) {
         return `_:${object.value}`;
     } else if (object.termType === 'Literal') {
         if ('dataType' in object) {
+            return `${sparqlEscapeString(object.value)}^^${sparqlEscapeUri(object.dataType.value)}`;
+        } else if ('datatype' in object) {
             return `${sparqlEscapeString(object.value)}^^${sparqlEscapeUri(object.datatype.value)}`;
         } else {
             return `${sparqlEscapeString(object.value)}`;
