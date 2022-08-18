@@ -1,10 +1,10 @@
 {
-  "name": "solid-shop-search-service",
+  "name": "solid-sync-service",
   "version": "1.0.0",
-  "description": "Search part of the solid shop",
+  "description": "Synchronize data between Solid PODs and a triple store",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/redpencilio/solid-shop-search-service.git"
+    "url": "git+https://github.com/redpencilio/solid-sync-service.git"
   },
   "main": "app.js",
   "scripts": {
