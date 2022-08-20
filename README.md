@@ -142,6 +142,31 @@ On reading from or writing to the user's POD:
 To be able to support ESS POD users, you have to register your application with the ESS IDP. You can do this at [Inrupt Application Registration](https://login.inrupt.com/registration.html).  
 Then, you should fill in the `ESS_CLIENT_ID` and `ESS_CLIENT_SECRET` environment variables in the `docker-compose.yml` file. Also change the `ESS_IDP` environment variable if you had used another ESS IDP.
 
+## Endpoints
+
+### `POST /delta`
+
+Used to get notified about incoming tasks for this service by the delta-notifier.
+
+### `POST /auth/credentials`
+
+Used to authenticate the user and save the credentials to the triple store.
+
+It expects the following parameters:
+- `idpType`: the IDP type, either `css` or `ess`
+  - ESS & CSS
+- `clientWebId`: the user's WebId
+  - ESS & CSS
+- `clientId`: the client id of the application
+  - CSS
+- `clientSecret`: the client secret of the application
+  - CSS
+- `idpUrl`: the IDP URL
+  - CSS
+
+### `GET /auth/ess/webId`
+
+Returns the application's WebId.
 
 ## Contribution
 
